@@ -1,0 +1,203 @@
+# Intro to Data Science HW 8
+##### Copyright Jeffrey Stanton, Jeffrey Saltz, and Jasmina Tacheva
+
+
+```{r}
+# Enter your name here: 
+```
+
+### Attribution statement: (choose only one and delete the rest)
+
+
+```{r}
+# 1. 
+# 2. 
+# 3. 
+```
+
+Supervised learning means that there is a **criterion one is trying to predict**. The typical strategy is to **divide data** into a **training set** and a **test set** (for example, **two-thirds training** and **one-third test**), train the model on the training set, and then see how well the model does on the test set. <br>
+
+**Support vector machines (SVM)** are a highly flexible and powerful method of doing **supervised machine learning**.
+
+Another approach is to use **partition trees (rpart)** 
+
+In this homework, we will use another banking dataset to train an SVM model, as well as an rpart model, to **classify potential borrowers into 2 groups of credit risk** – **reliable borrowers** and **borrowers posing a risk**. You can learn more about the variables in the dataset here:<br> https://archive.ics.uci.edu/ml/datasets/Statlog+%28German+Credit+Data%29 <br>
+
+This kind of classification algorithms is used in many aspects of our lives – from credit card approvals to stock market predictions, and even some medical diagnoses. <br>
+
+## Part 1: Load and condition the data  
+
+A.	Read the contents of the following .csv file into a dataframe called **credit**: <br>
+
+https://intro-datascience.s3.us-east-2.amazonaws.com/GermanCredit.csv <br>
+
+You will also need to install( ) and library( ) several other libraries, such as **kernlab** and **caret**.
+
+
+
+```{r}
+library(tidyverse)
+credit = read_csv("https://intro-datascience.s3.us-east-2.amazonaws.com/GermanCredit.csv")
+head(credit)
+```
+
+B.	Which variable contains the outcome we are trying to predict, **credit risk**? For the purposes of this analysis, we will focus only on the numeric variables and save them in a new dataframe called **cred**:
+
+
+```{r}
+cred <- data.frame(duration=credit$duration, 
+                   amount=credit$amount, 
+                   installment_rate=credit$installment_rate, 
+                   present_residence=credit$present_residence, 
+                   age=credit$age, 
+                   credit_history=credit$number_credits, 
+                   people_liable=credit$people_liable, 
+                   credit_risk=as.factor(credit$credit_risk))
+
+head(cred)
+```
+
+C.	Although all variables in **cred** except **credit_risk** are coded as numeric, the values of one of them are also **ordered factors** rather than actual numbers. In consultation with the **data description link** from the intro, write a comment identifying the **factor variable** and briefly **describe** each variable in the dataframe. 
+
+
+```{r}
+# could be credit_history
+cred$credit_risk = as.factor(cred$credit_risk)
+cred$credit_history = as.factor(cred$credit_history)
+
+```
+
+## Part 2: Create training and test data sets
+
+A.	Using techniques discussed in class, create **two datasets** – one for **training** and one for **testing**.
+
+
+```{r}
+sample.id = sample(c(TRUE,FALSE), nrow(cred), replace = TRUE, prob = c(0.75, 0.25))
+train = cred[sample.id,]
+test = cred[!sample.id,]
+
+```
+
+B.	Use the dim( ) function to demonstrate that the resulting training data set and test data set contain the appropriate number of cases.
+
+
+```{r}
+
+dim(train)
+dim(test)
+
+```
+
+## Part 3: Build a Model using SVM
+
+A.	Using the caret package, build a support vector model using all of the variables to predict **credit_risk**
+
+
+```{r}
+
+# lm(y ~ x1+x2+..., data = dataname)
+
+library(caret)
+svm1 <- train(credit_risk ~., data=train)
+
+#train(credit_risk ~ duration + amount+installment_rate+present_residence+age+credit_history+people_liable, data = train, method = "svmLinear", preProcess = c("center","scale"))
+```
+
+B. output the model
+
+Hint: explore finalModel in the model that would created in F.
+
+
+```{r}
+svm1$finalModel
+```
+
+## Part 4: Predict Values in the Test Data and Create a Confusion Matrix
+
+A.	Use the predict( ) function to validate the model against test data. Store the predictions in a variable named **svmPred**.
+
+
+```{r}
+svmPred=predict(svm1, test)
+```
+
+B.	The **svmPred** object contains a list of classifications for reliable (=0) or risky (=1) borrowers. Review the contents of **svmPred** using head( ).
+
+
+```{r}
+head(svmPred,20)
+```
+
+C.	Explore the **confusion matrix**, using the caret package
+
+
+```{r}
+actual = test$credit_risk
+caret::confusionMatrix(table(actual, svmPred))
+
+```
+
+D.	What is the **accuracy** based on what you see in the confusion matrix. 
+
+
+```{r}
+
+# 0.744
+
+```
+
+E.	Compare your calculations with the **confusionMatrix()** function from the **caret** package.
+
+
+```{r}
+
+```
+
+F.	Explain, in a block comment:<br> 1) why it is valuable to have a “test” dataset that is separate from a “training” dataset, and <br>2) what potential ethical challenges this type of automated classification may pose. 
+
+
+```{r}
+# splitting data into train and test data helps in validating the model so that it fits well on external data other than just the modelling data.
+# it reduces the bias of model being too dependent on only the modelling dataset
+```
+
+## Part 5: Now build a tree model (with rpart)
+
+A. Build a model with rpart
+<br>
+Note: you might need to install the e1071 package
+
+
+```{r}
+library(kernlab)
+library(e1071)
+library(rpart)
+mytree <- rpart( credit_risk ~., data=train, method = "class")
+```
+
+B. Visualize the results using  rpart.plot()
+
+
+```{r}
+options(warn = -1)
+library("rpart.plot")
+rpart.plot(mytree, main = "credit risk\n(binary response)", cex = 0.6)
+
+```
+
+C. Use the **predict()** function to predict the testData, and then generate a confusion matrix to explore the results
+
+
+```{r}
+treePred=predict(mytree, test, type = 'class')
+caret::confusionMatrix(table(actual, treePred))
+
+```
+
+D. Review the attributes being used for this credit decision. Are there any that might not be appropriate, with respect to fairness? If so, which attribute, and how would you address this fairness situation. Answer in a comment block below
+
+
+```{r}
+
+```
